@@ -3,12 +3,12 @@ const mongoose = require('mongoose');
 const leaveSchema = new mongoose.Schema({
   employee: {
     type: mongoose.Schema.Types.ObjectId,
-    ref: 'User',
+    ref: 'Employee',
     required: true
   },
   type: {
     type: String,
-    enum: ['annual', 'sick', 'maternity', 'paternity', 'emergency'],
+    enum: ['annual', 'sick', 'emergency', 'family-care', 'parental'],
     required: true
   },
   startDate: {
@@ -19,33 +19,68 @@ const leaveSchema = new mongoose.Schema({
     type: Date,
     required: true
   },
+  duration: {
+    type: Number,
+    required: true
+  },
   reason: {
     type: String,
     required: true
   },
   status: {
     type: String,
-    enum: ['pending', 'approved', 'rejected'],
+    enum: ['pending', 'approved', 'rejected', 'cancelled'],
     default: 'pending'
   },
   approvedBy: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User'
   },
-  approvedAt: {
-    type: Date
-  },
-  rejectionReason: {
-    type: String
-  }
+  approvedAt: Date,
+  rejectionReason: String,
+  attachments: [{
+    name: String,
+    url: String,
+    uploadDate: Date
+  }]
 }, {
   timestamps: true
 });
 
-// Calculate duration in days
-leaveSchema.virtual('duration').get(function() {
-  const diffTime = Math.abs(this.endDate - this.startDate);
-  return Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
+// Leave balance schema
+const leaveBalanceSchema = new mongoose.Schema({
+  employee: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Employee',
+    required: true
+  },
+  annual: {
+    accrued: { type: Number, default: 0 },
+    used: { type: Number, default: 0 }
+  },
+  sick: {
+    accrued: { type: Number, default: 0 },
+    used: { type: Number, default: 0 }
+  },
+  emergency: {
+    accrued: { type: Number, default: 0 },
+    used: { type: Number, default: 0 }
+  },
+  familyCare: {
+    accrued: { type: Number, default: 0 },
+    used: { type: Number, default: 0 }
+  },
+  parental: {
+    maternity: { type: Number, default: 90 },
+    paternity: { type: Number, default: 14 }
+  },
+  lastUpdated: {
+    type: Date,
+    default: Date.now
+  }
 });
 
-module.exports = mongoose.model('Leave', leaveSchema); 
+const Leave = mongoose.model('Leave', leaveSchema);
+const LeaveBalance = mongoose.model('LeaveBalance', leaveBalanceSchema);
+
+module.exports = { Leave, LeaveBalance }; 

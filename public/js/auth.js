@@ -1,75 +1,131 @@
-document.addEventListener('DOMContentLoaded', () => {
-    const loginForm = document.getElementById('loginForm');
-    
-    loginForm.addEventListener('submit', async (e) => {
-        e.preventDefault();
-        
-        const email = document.getElementById('email').value;
-        const password = document.getElementById('password').value;
-        
+// Authentication state
+let currentUser = null;
+
+// Initialize authentication
+async function initAuth() {
+    const token = localStorage.getItem('token');
+    if (token) {
         try {
-            const response = await fetch('/api/auth/login', {
-                method: 'POST',
+            const response = await fetch('/api/auth/me', {
                 headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({ email, password })
+                    'Authorization': `Bearer ${token}`
+                }
             });
             
-            const data = await response.json();
-            
             if (response.ok) {
-                // Store the token in localStorage
-                localStorage.setItem('token', data.token);
-                localStorage.setItem('user', JSON.stringify(data.employee));
-                
-                // Redirect based on role
-                switch (data.employee.role) {
-                    case 'admin':
-                        window.location.href = '/src/dashboard/admin.html';
-                        break;
-                    case 'hr':
-                        window.location.href = '/src/dashboard/hr.html';
-                        break;
-                    case 'employee':
-                        window.location.href = '/src/dashboard/employee.html';
-                        break;
-                    default:
-                        window.location.href = '/src/dashboard/employee.html';
-                }
+                currentUser = await response.json();
+                updateUIForLoggedInUser();
             } else {
-                alert(data.error || 'Login failed. Please try again.');
+                localStorage.removeItem('token');
+                redirectToLogin();
             }
         } catch (error) {
-            console.error('Login error:', error);
-            alert('An error occurred during login. Please try again.');
+            console.error('Auth error:', error);
+            localStorage.removeItem('token');
+            redirectToLogin();
+        }
+    } else {
+        redirectToLogin();
+    }
+}
+
+// Update UI for logged in user
+function updateUIForLoggedInUser() {
+    document.getElementById('userName').textContent = `${currentUser.firstName} ${currentUser.lastName}`;
+    
+    // Show/hide navigation items based on role
+    const navItems = document.querySelectorAll('.nav-link');
+    navItems.forEach(item => {
+        if (item.getAttribute('data-role')) {
+            const requiredRole = item.getAttribute('data-role');
+            item.style.display = currentUser.role === requiredRole ? 'block' : 'none';
         }
     });
-});
-
-// Utility function to check if user is authenticated
-function isAuthenticated() {
-    return localStorage.getItem('token') !== null;
 }
 
-// Utility function to get user role
-function getUserRole() {
-    const user = JSON.parse(localStorage.getItem('user') || '{}');
-    return user.role;
+// Redirect to login page
+function redirectToLogin() {
+    if (window.location.pathname !== '/login.html') {
+        window.location.href = '/login.html';
+    }
 }
 
-// Utility function to get authorization header
-function getAuthHeader() {
-    const token = localStorage.getItem('token');
-    return {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json'
-    };
+// Login function
+async function login(email, password) {
+    try {
+        const response = await fetch('/api/auth/login', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ email, password })
+        });
+
+        if (response.ok) {
+            const data = await response.json();
+            localStorage.setItem('token', data.token);
+            currentUser = data.user;
+            updateUIForLoggedInUser();
+            showToast('Success', 'Logged in successfully');
+            window.location.href = '/dashboard.html';
+        } else {
+            const error = await response.json();
+            showToast('Error', error.message);
+        }
+    } catch (error) {
+        console.error('Login error:', error);
+        showToast('Error', 'An error occurred during login');
+    }
 }
 
 // Logout function
 function logout() {
     localStorage.removeItem('token');
-    localStorage.removeItem('user');
-    window.location.href = '/src/auth/login.html';
-} 
+    currentUser = null;
+    redirectToLogin();
+}
+
+// Show toast notification
+function showToast(title, message) {
+    const toast = document.getElementById('toast');
+    const toastTitle = document.getElementById('toastTitle');
+    const toastMessage = document.getElementById('toastMessage');
+    
+    toastTitle.textContent = title;
+    toastMessage.textContent = message;
+    
+    const bsToast = new bootstrap.Toast(toast);
+    bsToast.show();
+}
+
+// Show loading spinner
+function showLoading() {
+    document.getElementById('loadingSpinner').style.display = 'block';
+}
+
+// Hide loading spinner
+function hideLoading() {
+    document.getElementById('loadingSpinner').style.display = 'none';
+}
+
+// Add event listeners
+document.addEventListener('DOMContentLoaded', () => {
+    // Initialize auth
+    initAuth();
+
+    // Logout button
+    const logoutBtn = document.getElementById('logoutBtn');
+    if (logoutBtn) {
+        logoutBtn.addEventListener('click', logout);
+    }
+});
+
+// Export functions for use in other files
+window.auth = {
+    login,
+    logout,
+    showToast,
+    showLoading,
+    hideLoading,
+    getCurrentUser: () => currentUser
+}; 

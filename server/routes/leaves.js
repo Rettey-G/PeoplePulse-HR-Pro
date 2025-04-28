@@ -2,147 +2,125 @@ const express = require('express');
 const router = express.Router();
 const Employee = require('../models/Employee');
 const { auth, authorize } = require('../middleware/auth');
-const Leave = require('../models/Leave');
+const { Leave, LeaveBalance } = require('../models/Leave');
 const User = require('../models/User');
 
-// Get leave balances for an employee
-router.get('/:id/balances', auth, authorize(['admin', 'hr']), async (req, res) => {
-    try {
-        const employee = await Employee.findById(req.params.id)
-            .select('name department gender leaveBalances leaveHistory');
-        
-        if (!employee) {
-            return res.status(404).json({ error: 'Employee not found' });
-        }
-
-        res.json(employee);
-    } catch (error) {
-        res.status(500).json({ error: error.message });
+// Get leave balances
+router.get('/:id/balances', auth, async (req, res) => {
+  try {
+    const employee = await Employee.findById(req.params.id);
+    
+    if (!employee) {
+      return res.status(404).json({ message: 'Employee not found' });
     }
+
+    // Check if user has permission to view these balances
+    if (req.user.role === 'employee' && employee.user.toString() !== req.user._id.toString()) {
+      return res.status(403).json({ message: 'Access denied' });
+    }
+
+    const balances = await LeaveBalance.findOne({ employee: req.params.id });
+    res.json(balances);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
 });
 
 // Request leave
 router.post('/request', auth, async (req, res) => {
-    try {
-        const { type, startDate, endDate } = req.body;
-        const employee = await Employee.findById(req.employee._id);
-
-        if (!employee) {
-            return res.status(404).json({ error: 'Employee not found' });
-        }
-
-        // Calculate leave duration
-        const start = new Date(startDate);
-        const end = new Date(endDate);
-        const duration = Math.ceil((end - start) / (1000 * 60 * 60 * 24)) + 1;
-
-        // Check if enough balance
-        const balance = employee.leaveBalances[type].accrued - employee.leaveBalances[type].used;
-        if (balance < duration) {
-            return res.status(400).json({ error: 'Insufficient leave balance' });
-        }
-
-        // Add to leave history
-        employee.leaveHistory.push({
-            type,
-            startDate,
-            endDate,
-            status: 'pending'
-        });
-
-        await employee.save();
-
-        // Emit real-time update
-        req.app.get('io').emit('leaveUpdate', {
-            employeeId: employee._id,
-            ...employee.toObject()
-        });
-
-        res.status(201).json(employee);
-    } catch (error) {
-        res.status(400).json({ error: error.message });
-    }
-});
-
-// Approve/reject leave
-router.patch('/:id/status', auth, authorize(['admin', 'hr']), async (req, res) => {
-    try {
-        const { leaveId, status } = req.body;
-        const employee = await Employee.findById(req.params.id);
-
-        if (!employee) {
-            return res.status(404).json({ error: 'Employee not found' });
-        }
-
-        const leave = employee.leaveHistory.id(leaveId);
-        if (!leave) {
-            return res.status(404).json({ error: 'Leave request not found' });
-        }
-
-        if (status === 'approved') {
-            // Calculate duration
-            const start = new Date(leave.startDate);
-            const end = new Date(leave.endDate);
-            const duration = Math.ceil((end - start) / (1000 * 60 * 60 * 24)) + 1;
-
-            // Update balance
-            employee.leaveBalances[leave.type].used += duration;
-        }
-
-        leave.status = status;
-        await employee.save();
-
-        // Emit real-time update
-        req.app.get('io').emit('leaveUpdate', {
-            employeeId: employee._id,
-            ...employee.toObject()
-        });
-
-        res.json(employee);
-    } catch (error) {
-        res.status(400).json({ error: error.message });
-    }
-});
-
-// Get leave history
-router.get('/:id/history', auth, authorize(['admin', 'hr']), async (req, res) => {
-    try {
-        const employee = await Employee.findById(req.params.id)
-            .select('leaveHistory');
-        
-        if (!employee) {
-            return res.status(404).json({ error: 'Employee not found' });
-        }
-
-        res.json(employee.leaveHistory);
-    } catch (error) {
-        res.status(500).json({ error: error.message });
-    }
-});
-
-// Create leave request
-router.post('/request', auth, async (req, res) => {
   try {
-    const leave = new Leave({
-      ...req.body,
-      employee: req.user._id
-    });
+    const { type, startDate, endDate, reason, attachments } = req.body;
+    
+    // Calculate duration
+    const duration = Math.ceil((new Date(endDate) - new Date(startDate)) / (1000 * 60 * 60 * 24)) + 1;
 
-    // Check if user has sufficient leave balance
-    const user = await User.findById(req.user._id);
-    const leaveType = req.body.type;
-    const duration = leave.duration;
-
-    if (user.leaveBalance[leaveType] < duration) {
-      return res.status(400).json({ 
-        message: `Insufficient ${leaveType} leave balance` 
-      });
+    // Get employee
+    const employee = await Employee.findOne({ user: req.user._id });
+    if (!employee) {
+      return res.status(404).json({ message: 'Employee not found' });
     }
+
+    // Check leave balance
+    const balance = await LeaveBalance.findOne({ employee: employee._id });
+    if (!balance) {
+      return res.status(400).json({ message: 'Leave balance not found' });
+    }
+
+    const availableBalance = balance[type].accrued - balance[type].used;
+    if (availableBalance < duration) {
+      return res.status(400).json({ message: 'Insufficient leave balance' });
+    }
+
+    // Create leave request
+    const leave = new Leave({
+      employee: employee._id,
+      type,
+      startDate,
+      endDate,
+      duration,
+      reason,
+      attachments
+    });
 
     await leave.save();
     res.status(201).json(leave);
   } catch (error) {
     res.status(400).json({ message: error.message });
+  }
+});
+
+// Update leave status (admin and HR only)
+router.patch('/:id/status', auth, authorize('admin', 'hr'), async (req, res) => {
+  try {
+    const { status, rejectionReason } = req.body;
+    const leave = await Leave.findById(req.params.id);
+
+    if (!leave) {
+      return res.status(404).json({ message: 'Leave request not found' });
+    }
+
+    // Update leave status
+    leave.status = status;
+    if (status === 'approved') {
+      leave.approvedBy = req.user._id;
+      leave.approvedAt = new Date();
+      
+      // Update leave balance
+      const balance = await LeaveBalance.findOne({ employee: leave.employee });
+      balance[leave.type].used += leave.duration;
+      await balance.save();
+    } else if (status === 'rejected') {
+      leave.rejectionReason = rejectionReason;
+    }
+
+    await leave.save();
+    res.json(leave);
+  } catch (error) {
+    res.status(400).json({ message: error.message });
+  }
+});
+
+// Get leave history
+router.get('/:id/history', auth, async (req, res) => {
+  try {
+    const employee = await Employee.findById(req.params.id);
+    
+    if (!employee) {
+      return res.status(404).json({ message: 'Employee not found' });
+    }
+
+    // Check if user has permission to view this history
+    if (req.user.role === 'employee' && employee.user.toString() !== req.user._id.toString()) {
+      return res.status(403).json({ message: 'Access denied' });
+    }
+
+    const leaves = await Leave.find({ employee: req.params.id })
+      .sort('-createdAt')
+      .populate('approvedBy', 'firstName lastName');
+
+    res.json(leaves);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
   }
 });
 
@@ -166,35 +144,6 @@ router.get('/my-leaves', auth, async (req, res) => {
     res.json(leaves);
   } catch (error) {
     res.status(500).json({ message: error.message });
-  }
-});
-
-// Update leave status (HR and Admin only)
-router.patch('/:id/status', auth, authorize('hr', 'admin'), async (req, res) => {
-  try {
-    const leave = await Leave.findById(req.params.id);
-    if (!leave) {
-      return res.status(404).json({ message: 'Leave request not found' });
-    }
-
-    const { status, rejectionReason } = req.body;
-    leave.status = status;
-    leave.approvedBy = req.user._id;
-    leave.approvedAt = new Date();
-    
-    if (status === 'rejected') {
-      leave.rejectionReason = rejectionReason;
-    } else if (status === 'approved') {
-      // Update user's leave balance
-      const user = await User.findById(leave.employee);
-      user.leaveBalance[leave.type] -= leave.duration;
-      await user.save();
-    }
-
-    await leave.save();
-    res.json(leave);
-  } catch (error) {
-    res.status(400).json({ message: error.message });
   }
 });
 

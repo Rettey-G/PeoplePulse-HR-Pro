@@ -4,7 +4,7 @@ const Employee = require('../models/Employee');
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
 const User = require('../models/User');
-const { auth } = require('../middleware/auth');
+const { auth, authorize } = require('../middleware/auth');
 
 // Register new employee (Admin only)
 router.post('/register', async (req, res) => {
@@ -61,15 +61,44 @@ router.post('/logout', async (req, res) => {
     }
 });
 
-// Register new user
-router.post('/register', async (req, res) => {
+// Register new user (admin only)
+router.post('/register', auth, authorize('admin'), async (req, res) => {
   try {
-    const user = new User(req.body);
-    await user.save();
-    const token = jwt.sign({ userId: user._id }, process.env.JWT_SECRET, {
-      expiresIn: process.env.JWT_EXPIRES_IN
+    const { email, password, role, firstName, lastName } = req.body;
+
+    // Check if user already exists
+    const existingUser = await User.findOne({ email });
+    if (existingUser) {
+      return res.status(400).json({ message: 'Email already registered' });
+    }
+
+    const user = new User({
+      email,
+      password,
+      role,
+      firstName,
+      lastName
     });
-    res.status(201).json({ user, token });
+
+    await user.save();
+    
+    // Generate token
+    const token = jwt.sign(
+      { _id: user._id.toString() },
+      process.env.JWT_SECRET,
+      { expiresIn: '7d' }
+    );
+
+    res.status(201).json({
+      user: {
+        _id: user._id,
+        email: user.email,
+        role: user.role,
+        firstName: user.firstName,
+        lastName: user.lastName
+      },
+      token
+    });
   } catch (error) {
     res.status(400).json({ message: error.message });
   }
@@ -79,25 +108,53 @@ router.post('/register', async (req, res) => {
 router.post('/login', async (req, res) => {
   try {
     const { email, password } = req.body;
-    const user = await User.findOne({ email });
-    
-    if (!user || !(await user.comparePassword(password))) {
+
+    // Find user
+    const user = await User.findOne({ email, isActive: true });
+    if (!user) {
       return res.status(401).json({ message: 'Invalid credentials' });
     }
 
-    const token = jwt.sign({ userId: user._id }, process.env.JWT_SECRET, {
-      expiresIn: process.env.JWT_EXPIRES_IN
-    });
+    // Check password
+    const isMatch = await user.comparePassword(password);
+    if (!isMatch) {
+      return res.status(401).json({ message: 'Invalid credentials' });
+    }
 
-    res.json({ user, token });
+    // Update last login
+    user.lastLogin = new Date();
+    await user.save();
+
+    // Generate token
+    const token = jwt.sign(
+      { _id: user._id.toString() },
+      process.env.JWT_SECRET,
+      { expiresIn: '7d' }
+    );
+
+    res.json({
+      user: {
+        _id: user._id,
+        email: user.email,
+        role: user.role,
+        firstName: user.firstName,
+        lastName: user.lastName
+      },
+      token
+    });
   } catch (error) {
     res.status(400).json({ message: error.message });
   }
 });
 
-// Get current user profile
+// Get current user
 router.get('/me', auth, async (req, res) => {
-  res.json(req.user);
+  try {
+    const user = await User.findById(req.user._id).select('-password');
+    res.json(user);
+  } catch (error) {
+    res.status(400).json({ message: error.message });
+  }
 });
 
 // Update user profile

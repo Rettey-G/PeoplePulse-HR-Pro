@@ -1,86 +1,69 @@
 const mongoose = require('mongoose');
 
-const leaveHistorySchema = new mongoose.Schema({
-    type: {
-        type: String,
-        required: true
-    },
-    startDate: {
-        type: Date,
-        required: true
-    },
-    endDate: {
-        type: Date,
-        required: true
-    },
-    status: {
-        type: String,
-        enum: ['pending', 'approved', 'rejected'],
-        default: 'pending'
-    }
-});
-
 const employeeSchema = new mongoose.Schema({
-    name: {
-        type: String,
-        required: true
+  user: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+    required: true
+  },
+  employeeId: {
+    type: String,
+    required: true,
+    unique: true
+  },
+  department: {
+    type: String,
+    required: true
+  },
+  position: {
+    type: String,
+    required: true
+  },
+  joinDate: {
+    type: Date,
+    required: true
+  },
+  employmentType: {
+    type: String,
+    enum: ['full-time', 'part-time', 'contract'],
+    required: true
+  },
+  supervisor: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Employee'
+  },
+  contactInfo: {
+    phone: String,
+    emergencyContact: {
+      name: String,
+      relationship: String,
+      phone: String
+    }
+  },
+  address: {
+    street: String,
+    city: String,
+    state: String,
+    zipCode: String,
+    country: String
+  },
+  documents: [{
+    type: {
+      type: String,
+      enum: ['resume', 'contract', 'certification', 'other']
     },
-    email: {
-        type: String,
-        required: true,
-        unique: true
-    },
-    password: {
-        type: String,
-        required: true
-    },
-    role: {
-        type: String,
-        enum: ['admin', 'hr', 'employee'],
-        required: true
-    },
-    gender: {
-        type: String,
-        enum: ['male', 'female'],
-        required: true
-    },
-    hireDate: {
-        type: Date,
-        required: true
-    },
-    department: {
-        type: String,
-        required: true
-    },
-    manager: {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: 'Employee'
-    },
-    leaveBalances: {
-        annual: {
-            accrued: { type: Number, default: 0 },
-            used: { type: Number, default: 0 }
-        },
-        emergency: {
-            accrued: { type: Number, default: 0 },
-            used: { type: Number, default: 0 }
-        },
-        sick: {
-            accrued: { type: Number, default: 0 },
-            used: { type: Number, default: 0 }
-        },
-        parental: {
-            accrued: { type: Number, default: 0 },
-            used: { type: Number, default: 0 }
-        },
-        familyCare: {
-            accrued: { type: Number, default: 0 },
-            used: { type: Number, default: 0 }
-        }
-    },
-    leaveHistory: [leaveHistorySchema]
+    url: String,
+    uploadDate: Date
+  }],
+  status: {
+    type: String,
+    enum: ['active', 'on-leave', 'terminated'],
+    default: 'active'
+  }
 }, {
-    timestamps: true
+  timestamps: true
 });
 
-module.exports = mongoose.model('Employee', employeeSchema); 
+const Employee = mongoose.model('Employee', employeeSchema);
+
+module.exports = Employee; 
