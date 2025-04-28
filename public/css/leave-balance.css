@@ -1,0 +1,119 @@
+/* Leave Balance Specific Styles */
+.employee-info {
+    background: white;
+    padding: 20px;
+    border-radius: 8px;
+    margin-bottom: 20px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.employee-info h2 {
+    color: #2c3e50;
+    margin-bottom: 5px;
+}
+
+.employee-info p {
+    color: #666;
+    font-size: 14px;
+}
+
+.employee-select {
+    padding: 8px 15px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    width: 300px;
+    font-size: 14px;
+}
+
+.leave-balance-cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 20px;
+    margin-bottom: 30px;
+}
+
+.leave-balance-cards .card {
+    background: white;
+    padding: 20px;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    text-align: center;
+}
+
+.leave-balance-cards .card h3 {
+    color: #666;
+    font-size: 14px;
+    margin-bottom: 10px;
+}
+
+.leave-balance-cards .card p {
+    font-size: 24px;
+    font-weight: bold;
+    color: #2c3e50;
+}
+
+.leave-history {
+    background: white;
+    padding: 20px;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.leave-history h3 {
+    color: #2c3e50;
+    margin-bottom: 20px;
+}
+
+.leave-history table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.leave-history th,
+.leave-history td {
+    padding: 12px;
+    text-align: left;
+    border-bottom: 1px solid #ddd;
+}
+
+.leave-history th {
+    background-color: #f8f9fa;
+    color: #666;
+    font-weight: 500;
+}
+
+.leave-history tr:hover {
+    background-color: #f8f9fa;
+}
+
+/* Status colors */
+.status-pending {
+    color: #f1c40f;
+}
+
+.status-approved {
+    color: #2ecc71;
+}
+
+.status-rejected {
+    color: #e74c3c;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+    .employee-select {
+        width: 100%;
+    }
+
+    .leave-balance-cards {
+        grid-template-columns: 1fr;
+    }
+
+    .leave-history {
+        overflow-x: auto;
+    }
+
+    .leave-history table {
+        min-width: 600px;
+    }
+} 

@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PeoplePulse HR Pro - Admin Dashboard</title>
+    <link rel="stylesheet" href="../../public/css/style.css">
+    <link rel="stylesheet" href="../../public/css/dashboard.css">
+</head>
+<body>
+    <div class="dashboard-container">
+        <!-- Sidebar -->
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <h2>PeoplePulse</h2>
+                <p>Admin Dashboard</p>
+            </div>
+            <nav class="sidebar-nav">
+                <ul>
+                    <li class="active"><a href="#overview">Overview</a></li>
+                    <li><a href="#employees">Employees</a></li>
+                    <li><a href="#departments">Departments</a></li>
+                    <li><a href="#payroll">Payroll</a></li>
+                    <li><a href="#leaves">Leave Management</a></li>
+                    <li><a href="#reports">Reports</a></li>
+                    <li><a href="#settings">Settings</a></li>
+                </ul>
+            </nav>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <header class="top-bar">
+                <div class="search-bar">
+                    <input type="text" placeholder="Search...">
+                </div>
+                <div class="user-info">
+                    <span id="userName">Admin User</span>
+                    <button onclick="logout()" class="btn-logout">Logout</button>
+                </div>
+            </header>
+
+            <div class="content-area">
+                <div class="dashboard-cards">
+                    <div class="card">
+                        <h3>Total Employees</h3>
+                        <p id="totalEmployees">0</p>
+                    </div>
+                    <div class="card">
+                        <h3>Active Leaves</h3>
+                        <p id="activeLeaves">0</p>
+                    </div>
+                    <div class="card">
+                        <h3>Pending Requests</h3>
+                        <p id="pendingRequests">0</p>
+                    </div>
+                    <div class="card">
+                        <h3>Today's Attendance</h3>
+                        <p id="todaysAttendance">0</p>
+                    </div>
+                </div>
+
+                <div class="dashboard-charts">
+                    <div class="chart-container">
+                        <h3>Employee Distribution</h3>
+                        <canvas id="employeeChart"></canvas>
+                    </div>
+                    <div class="chart-container">
+                        <h3>Leave Trends</h3>
+                        <canvas id="leaveChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="../../public/js/auth.js"></script>
+    <script src="../../public/js/dashboard.js"></script>
+</body>
+</html> 

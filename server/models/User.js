@@ -1,66 +1,119 @@
 const mongoose = require('mongoose');
 const bcrypt = require('bcryptjs');
 
-const UserSchema = new mongoose.Schema({
-  username: { 
-    type: String, 
-    required: true, 
-    unique: true 
+const userSchema = new mongoose.Schema({
+  empNo: {
+    type: String,
+    required: true,
+    unique: true
   },
-  password: { 
-    type: String, 
-    required: true 
+  email: {
+    type: String,
+    required: true,
+    unique: true,
+    trim: true,
+    lowercase: true
   },
-  role: { 
-    type: String, 
+  password: {
+    type: String,
+    required: true,
+    minlength: 6
+  },
+  role: {
+    type: String,
     enum: ['admin', 'hr', 'employee'],
     default: 'employee'
   },
-  firstName: { 
-    type: String 
+  firstName: {
+    type: String,
+    required: true,
+    trim: true
   },
-  lastName: { 
-    type: String 
+  lastName: {
+    type: String,
+    required: true,
+    trim: true
   },
-  email: { 
-    type: String 
+  idNumber: {
+    type: String,
+    required: true,
+    unique: true
   },
-  accountUSD: { 
-    type: String 
+  gender: {
+    type: String,
+    enum: ['Male', 'Female'],
+    required: true
   },
-  accountMVR: { 
-    type: String 
+  nationality: {
+    type: String,
+    required: true
   },
-  active: { 
-    type: Boolean, 
-    default: true 
+  dateOfBirth: {
+    type: Date,
+    required: true
   },
-  lastLogin: { 
-    type: Date 
+  mobileNumber: {
+    type: String,
+    required: true
+  },
+  designation: {
+    type: String,
+    required: true
+  },
+  department: {
+    type: String,
+    required: true
+  },
+  workSite: {
+    type: String,
+    required: true
+  },
+  joinDate: {
+    type: Date,
+    required: true
+  },
+  salaryMVR: {
+    type: Number,
+    required: true
+  },
+  salaryUSD: {
+    type: Number,
+    required: true
+  },
+  accountMVR: {
+    type: String,
+    required: true
+  },
+  accountUSD: {
+    type: String,
+    required: true
+  },
+  leaveBalance: {
+    annual: { type: Number, default: 21 },
+    sick: { type: Number, default: 10 },
+    maternity: { type: Number, default: 90 },
+    paternity: { type: Number, default: 14 }
   }
-}, { timestamps: true });
+}, {
+  timestamps: true
+});
 
 // Hash password before saving
-UserSchema.pre('save', async function(next) {
-  // Only hash the password if it's been modified or is new
+userSchema.pre('save', async function(next) {
   if (!this.isModified('password')) return next();
   
   try {
     const salt = await bcrypt.genSalt(10);
     this.password = await bcrypt.hash(this.password, salt);
     next();
-  } catch (err) {
-    next(err);
+  } catch (error) {
+    next(error);
   }
 });
 
 // Method to compare passwords
-UserSchema.methods.comparePassword = async function(candidatePassword) {
-  try {
-    return await bcrypt.compare(candidatePassword, this.password);
-  } catch (err) {
-    throw err;
-  }
+userSchema.methods.comparePassword = async function(candidatePassword) {
+  return bcrypt.compare(candidatePassword, this.password);
 };
 
-module.exports = mongoose.model('User', UserSchema);
+module.exports = mongoose.model('User', userSchema); 

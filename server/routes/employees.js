@@ -1,109 +1,99 @@
 const express = require('express');
 const router = express.Router();
-const Employee = require('../models/Employee');
-const auth = require('../middleware/auth');
-const hr = require('../middleware/hr');
+const User = require('../models/User');
+const { auth, authorize } = require('../middleware/auth');
 
-// GET all employees with filtering
-router.get('/', auth, async (req, res) => {
+// Get all employees (HR and Admin only)
+router.get('/', auth, authorize('hr', 'admin'), async (req, res) => {
   try {
-    // Extract filter parameters from query
-    const { department, workSite, active } = req.query;
-    
-    // Build query object
-    const query = {};
-    if (department) query.department = department;
-    if (workSite) query.workSite = workSite;
-    if (active !== undefined) query.active = active === 'true';
-    
-    const employees = await Employee.find(query).sort({ empNo: 1 });
+    const employees = await User.find()
+      .select('-password -__v')
+      .sort('empNo');
     res.json(employees);
-  } catch (err) {
-    console.error('Error fetching employees:', err);
-    res.status(500).json({ error: 'Failed to fetch employees' });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
   }
 });
 
-// GET employee by ID
+// Get employee by ID
 router.get('/:id', auth, async (req, res) => {
   try {
-    const employee = await Employee.findById(req.params.id);
-    if (!employee) return res.status(404).json({ error: 'Employee not found' });
+    const employee = await User.findById(req.params.id)
+      .select('-password -__v');
+    
+    if (!employee) {
+      return res.status(404).json({ message: 'Employee not found' });
+    }
+
+    // Only HR and Admin can view other employees' details
+    if (req.user.role !== 'admin' && req.user.role !== 'hr' && 
+        employee._id.toString() !== req.user._id.toString()) {
+      return res.status(403).json({ message: 'Access denied' });
+    }
+
     res.json(employee);
-  } catch (err) {
-    res.status(500).json({ error: err.message });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
   }
 });
 
-// POST create employee
-router.post('/', [auth, hr], async (req, res) => {
+// Create new employee (Admin only)
+router.post('/', auth, authorize('admin'), async (req, res) => {
   try {
-    // Format dates if they come as strings
-    if (req.body.dateOfBirth) {
-      req.body.dateOfBirth = new Date(req.body.dateOfBirth);
-    }
-    if (req.body.joinedDate) {
-      req.body.joinedDate = new Date(req.body.joinedDate);
-    }
-    
-    const employee = new Employee(req.body);
+    const employee = new User(req.body);
     await employee.save();
     res.status(201).json(employee);
-  } catch (err) {
-    res.status(400).json({ error: err.message });
+  } catch (error) {
+    res.status(400).json({ message: error.message });
   }
 });
 
-// PUT update employee
-router.put('/:id', [auth, hr], async (req, res) => {
+// Update employee (Admin only)
+router.patch('/:id', auth, authorize('admin'), async (req, res) => {
+  const updates = Object.keys(req.body);
+  const allowedUpdates = [
+    'email', 'firstName', 'lastName', 'idNumber', 'gender',
+    'nationality', 'dateOfBirth', 'mobileNumber', 'designation',
+    'department', 'workSite', 'salaryMVR', 'salaryUSD',
+    'accountMVR', 'accountUSD'
+  ];
+
+  const isValidOperation = updates.every(update => 
+    allowedUpdates.includes(update)
+  );
+
+  if (!isValidOperation) {
+    return res.status(400).json({ message: 'Invalid updates!' });
+  }
+
   try {
-    // Format dates if they come as strings
-    if (req.body.dateOfBirth) {
-      req.body.dateOfBirth = new Date(req.body.dateOfBirth);
-    }
-    if (req.body.joinedDate) {
-      req.body.joinedDate = new Date(req.body.joinedDate);
-    }
+    const employee = await User.findById(req.params.id);
     
-    const employee = await Employee.findByIdAndUpdate(req.params.id, req.body, { new: true });
-    if (!employee) return res.status(404).json({ error: 'Employee not found' });
+    if (!employee) {
+      return res.status(404).json({ message: 'Employee not found' });
+    }
+
+    updates.forEach(update => employee[update] = req.body[update]);
+    await employee.save();
     res.json(employee);
-  } catch (err) {
-    res.status(400).json({ error: err.message });
+  } catch (error) {
+    res.status(400).json({ message: error.message });
   }
 });
 
-// DELETE employee
-router.delete('/:id', [auth, hr], async (req, res) => {
+// Delete employee (Admin only)
+router.delete('/:id', auth, authorize('admin'), async (req, res) => {
   try {
-    const employee = await Employee.findByIdAndDelete(req.params.id);
-    if (!employee) return res.status(404).json({ error: 'Employee not found' });
-    res.json({ message: 'Employee deleted successfully', employee });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-// Bulk import employees
-router.post('/bulk', [auth, hr], async (req, res) => {
-  try {
-    const { employees } = req.body;
-    if (!employees || !Array.isArray(employees) || employees.length === 0) {
-      return res.status(400).json({ error: 'Invalid employees data' });
+    const employee = await User.findByIdAndDelete(req.params.id);
+    
+    if (!employee) {
+      return res.status(404).json({ message: 'Employee not found' });
     }
-    
-    // Format dates and prepare data
-    const formattedEmployees = employees.map(emp => ({
-      ...emp,
-      dateOfBirth: emp.dateOfBirth ? new Date(emp.dateOfBirth) : undefined,
-      joinedDate: emp.joinedDate ? new Date(emp.joinedDate) : undefined
-    }));
-    
-    const result = await Employee.insertMany(formattedEmployees, { ordered: false });
-    res.status(201).json({ message: `${result.length} employees imported successfully` });
-  } catch (err) {
-    res.status(400).json({ error: err.message });
+
+    res.json({ message: 'Employee deleted successfully' });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
   }
 });
 
-module.exports = router;
+module.exports = router; 

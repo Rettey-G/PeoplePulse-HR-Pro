@@ -1,174 +1,211 @@
 const express = require('express');
 const router = express.Router();
+const Employee = require('../models/Employee');
+const { auth, authorize } = require('../middleware/auth');
 const Leave = require('../models/Leave');
-const LeaveBalance = require('../models/LeaveBalance');
-const LeaveType = require('../models/LeaveType');
-const auth = require('../middleware/auth');
-const admin = require('../middleware/admin');
-const hr = require('../middleware/hr');
+const User = require('../models/User');
 
-// Get leave balances for the logged-in user
-router.get('/balances', auth, async (req, res) => {
-  try {
-    const balances = await LeaveBalance.find({ employee: req.user.id })
-      .populate('leaveType')
-      .sort({ 'leaveType.name': 1 });
-    res.json(balances);
-  } catch (error) {
-    console.error('Error fetching leave balances:', error);
-    res.status(500).json({ message: 'Server error' });
-  }
-});
+// Get leave balances for an employee
+router.get('/:id/balances', auth, authorize(['admin', 'hr']), async (req, res) => {
+    try {
+        const employee = await Employee.findById(req.params.id)
+            .select('name department gender leaveBalances leaveHistory');
+        
+        if (!employee) {
+            return res.status(404).json({ error: 'Employee not found' });
+        }
 
-// Get all leaves for the logged-in user
-router.get('/my-leaves', auth, async (req, res) => {
-  try {
-    const leaves = await Leave.find({ employee: req.user.id })
-      .sort({ createdAt: -1 })
-      .populate('leaveType')
-      .populate('approvedBy', 'username firstName lastName');
-    res.json(leaves);
-  } catch (error) {
-    console.error('Error fetching leaves:', error);
-    res.status(500).json({ message: 'Server error' });
-  }
-});
-
-// Get all leaves (for HR/Admin)
-router.get('/', [auth, hr], async (req, res) => {
-  try {
-    const leaves = await Leave.find()
-      .sort({ createdAt: -1 })
-      .populate('employee', 'username firstName lastName')
-      .populate('leaveType')
-      .populate('approvedBy', 'username firstName lastName');
-    res.json(leaves);
-  } catch (error) {
-    console.error('Error fetching all leaves:', error);
-    res.status(500).json({ message: 'Server error' });
-  }
-});
-
-// Create a new leave request
-router.post('/', auth, async (req, res) => {
-  try {
-    const { leaveType, startDate, endDate, reason } = req.body;
-
-    // Validate required fields
-    if (!leaveType || !startDate || !endDate || !reason) {
-      return res.status(400).json({ message: 'All fields are required' });
+        res.json(employee);
+    } catch (error) {
+        res.status(500).json({ error: error.message });
     }
+});
 
-    // Check leave balance before creating request
-    const balance = await LeaveBalance.findOne({
-      employee: req.user.id,
-      leaveType,
-      year: new Date().getFullYear()
-    });
+// Request leave
+router.post('/request', auth, async (req, res) => {
+    try {
+        const { type, startDate, endDate } = req.body;
+        const employee = await Employee.findById(req.employee._id);
 
-    if (!balance) {
-      return res.status(400).json({ message: 'No leave balance found for this leave type' });
+        if (!employee) {
+            return res.status(404).json({ error: 'Employee not found' });
+        }
+
+        // Calculate leave duration
+        const start = new Date(startDate);
+        const end = new Date(endDate);
+        const duration = Math.ceil((end - start) / (1000 * 60 * 60 * 24)) + 1;
+
+        // Check if enough balance
+        const balance = employee.leaveBalances[type].accrued - employee.leaveBalances[type].used;
+        if (balance < duration) {
+            return res.status(400).json({ error: 'Insufficient leave balance' });
+        }
+
+        // Add to leave history
+        employee.leaveHistory.push({
+            type,
+            startDate,
+            endDate,
+            status: 'pending'
+        });
+
+        await employee.save();
+
+        // Emit real-time update
+        req.app.get('io').emit('leaveUpdate', {
+            employeeId: employee._id,
+            ...employee.toObject()
+        });
+
+        res.status(201).json(employee);
+    } catch (error) {
+        res.status(400).json({ error: error.message });
     }
+});
 
+// Approve/reject leave
+router.patch('/:id/status', auth, authorize(['admin', 'hr']), async (req, res) => {
+    try {
+        const { leaveId, status } = req.body;
+        const employee = await Employee.findById(req.params.id);
+
+        if (!employee) {
+            return res.status(404).json({ error: 'Employee not found' });
+        }
+
+        const leave = employee.leaveHistory.id(leaveId);
+        if (!leave) {
+            return res.status(404).json({ error: 'Leave request not found' });
+        }
+
+        if (status === 'approved') {
+            // Calculate duration
+            const start = new Date(leave.startDate);
+            const end = new Date(leave.endDate);
+            const duration = Math.ceil((end - start) / (1000 * 60 * 60 * 24)) + 1;
+
+            // Update balance
+            employee.leaveBalances[leave.type].used += duration;
+        }
+
+        leave.status = status;
+        await employee.save();
+
+        // Emit real-time update
+        req.app.get('io').emit('leaveUpdate', {
+            employeeId: employee._id,
+            ...employee.toObject()
+        });
+
+        res.json(employee);
+    } catch (error) {
+        res.status(400).json({ error: error.message });
+    }
+});
+
+// Get leave history
+router.get('/:id/history', auth, authorize(['admin', 'hr']), async (req, res) => {
+    try {
+        const employee = await Employee.findById(req.params.id)
+            .select('leaveHistory');
+        
+        if (!employee) {
+            return res.status(404).json({ error: 'Employee not found' });
+        }
+
+        res.json(employee.leaveHistory);
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Create leave request
+router.post('/request', auth, async (req, res) => {
+  try {
     const leave = new Leave({
-      employee: req.user.id,
-      leaveType,
-      startDate,
-      endDate,
-      reason,
-      status: 'pending'
+      ...req.body,
+      employee: req.user._id
     });
+
+    // Check if user has sufficient leave balance
+    const user = await User.findById(req.user._id);
+    const leaveType = req.body.type;
+    const duration = leave.duration;
+
+    if (user.leaveBalance[leaveType] < duration) {
+      return res.status(400).json({ 
+        message: `Insufficient ${leaveType} leave balance` 
+      });
+    }
 
     await leave.save();
-    
-    // Populate the response
-    await leave.populate('leaveType');
     res.status(201).json(leave);
   } catch (error) {
-    console.error('Error creating leave request:', error);
+    res.status(400).json({ message: error.message });
+  }
+});
+
+// Get all leave requests (HR and Admin only)
+router.get('/', auth, authorize('hr', 'admin'), async (req, res) => {
+  try {
+    const leaves = await Leave.find()
+      .populate('employee', 'firstName lastName email')
+      .populate('approvedBy', 'firstName lastName');
+    res.json(leaves);
+  } catch (error) {
     res.status(500).json({ message: error.message });
   }
 });
 
-// Update leave status (for HR/Admin)
-router.patch('/:id/status', [auth, hr], async (req, res) => {
+// Get user's leave requests
+router.get('/my-leaves', auth, async (req, res) => {
   try {
-    const { status, comments } = req.body;
-    if (!['approved', 'rejected', 'pending', 'cancelled'].includes(status)) {
-      return res.status(400).json({ message: 'Invalid status' });
-    }
+    const leaves = await Leave.find({ employee: req.user._id })
+      .populate('approvedBy', 'firstName lastName');
+    res.json(leaves);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
 
-    const leave = await Leave.findById(req.params.id)
-      .populate('leaveType');
-    
+// Update leave status (HR and Admin only)
+router.patch('/:id/status', auth, authorize('hr', 'admin'), async (req, res) => {
+  try {
+    const leave = await Leave.findById(req.params.id);
     if (!leave) {
       return res.status(404).json({ message: 'Leave request not found' });
     }
 
-    // If approving, check balance again
-    if (status === 'approved') {
-      const balance = await LeaveBalance.findOne({
-        employee: leave.employee,
-        leaveType: leave.leaveType._id,
-        year: new Date(leave.startDate).getFullYear()
-      });
-
-      if (!balance) {
-        return res.status(400).json({ message: 'No leave balance found' });
-      }
-
-      if (leave.days > balance.remainingDays) {
-        leave.forfeitedDays = leave.days - balance.remainingDays;
-        leave.status = 'forfeited';
-      } else {
-        leave.status = status;
-        leave.approvedBy = req.user.id;
-        leave.approvalDate = Date.now();
-        if (comments) leave.comments = comments;
-
-        // Update balance
-        balance.usedDays += leave.days;
-        balance.remainingDays -= leave.days;
-        await balance.save();
-      }
-    } else {
-      leave.status = status;
-      if (comments) leave.comments = comments;
+    const { status, rejectionReason } = req.body;
+    leave.status = status;
+    leave.approvedBy = req.user._id;
+    leave.approvedAt = new Date();
+    
+    if (status === 'rejected') {
+      leave.rejectionReason = rejectionReason;
+    } else if (status === 'approved') {
+      // Update user's leave balance
+      const user = await User.findById(leave.employee);
+      user.leaveBalance[leave.type] -= leave.duration;
+      await user.save();
     }
 
     await leave.save();
     res.json(leave);
   } catch (error) {
-    console.error('Error updating leave status:', error);
-    res.status(500).json({ message: 'Server error' });
+    res.status(400).json({ message: error.message });
   }
 });
 
-// Delete a leave request (only if pending)
-router.delete('/:id', auth, async (req, res) => {
+// Get leave balances
+router.get('/balances', auth, async (req, res) => {
   try {
-    const leave = await Leave.findById(req.params.id);
-    
-    if (!leave) {
-      return res.status(404).json({ message: 'Leave request not found' });
-    }
-
-    // Only allow deletion if the user owns the request or is admin/hr
-    if (leave.employee.toString() !== req.user.id && !['admin', 'hr'].includes(req.user.role)) {
-      return res.status(403).json({ message: 'Access denied' });
-    }
-
-    // Only allow deletion of pending requests
-    if (leave.status !== 'pending') {
-      return res.status(400).json({ message: 'Cannot delete non-pending leave requests' });
-    }
-
-    await leave.deleteOne();
-    res.json({ message: 'Leave request deleted successfully' });
+    const user = await User.findById(req.user._id);
+    res.json(user.leaveBalance);
   } catch (error) {
-    console.error('Error deleting leave request:', error);
-    res.status(500).json({ message: 'Server error' });
+    res.status(500).json({ message: error.message });
   }
 });
 
-module.exports = router;
+module.exports = router; 

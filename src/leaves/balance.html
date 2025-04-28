@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PeoplePulse HR Pro - Leave Balance</title>
+    <link rel="stylesheet" href="../../public/css/style.css">
+    <link rel="stylesheet" href="../../public/css/leave-balance.css">
+</head>
+<body>
+    <div class="dashboard-container">
+        <!-- Sidebar -->
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <h2>PeoplePulse</h2>
+                <p>Leave Management</p>
+            </div>
+            <nav class="sidebar-nav">
+                <ul>
+                    <li class="active"><a href="#balance">Leave Balance</a></li>
+                    <li><a href="#request">Request Leave</a></li>
+                    <li><a href="#history">Leave History</a></li>
+                </ul>
+            </nav>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <header class="top-bar">
+                <div class="search-bar">
+                    <select id="employee-dropdown" class="employee-select">
+                        <option value="">Select Employee</option>
+                    </select>
+                </div>
+                <div class="user-info">
+                    <span id="userName">User</span>
+                    <button onclick="logout()" class="btn-logout">Logout</button>
+                </div>
+            </header>
+
+            <div class="content-area">
+                <div class="employee-info">
+                    <h2 id="employee-name">Select an employee</h2>
+                    <p id="employee-department"></p>
+                </div>
+
+                <div class="leave-balance-cards">
+                    <div class="card">
+                        <h3>Annual Leave</h3>
+                        <p id="annual-balance">0 days</p>
+                    </div>
+                    <div class="card">
+                        <h3>Sick Leave</h3>
+                        <p id="sick-balance">0 days</p>
+                    </div>
+                    <div class="card">
+                        <h3>Emergency Leave</h3>
+                        <p id="emergency-balance">0 days</p>
+                    </div>
+                    <div class="card">
+                        <h3>Family Care</h3>
+                        <p id="family-care-balance">0 days</p>
+                    </div>
+                    <div class="card">
+                        <h3 id="parental-leave-item">Parental Leave</h3>
+                        <p>0 days</p>
+                    </div>
+                </div>
+
+                <div class="leave-history">
+                    <h3>Leave History</h3>
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Type</th>
+                                <th>Start Date</th>
+                                <th>End Date</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+                        <tbody id="leave-history">
+                            <!-- Leave history will be populated dynamically -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="../../public/js/auth.js"></script>
+    <script src="../../public/js/leave-balance.js"></script>
+</body>
+</html> 

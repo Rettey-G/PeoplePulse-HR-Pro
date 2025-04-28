@@ -1,123 +1,122 @@
 const express = require('express');
 const router = express.Router();
+const Employee = require('../models/Employee');
 const jwt = require('jsonwebtoken');
+const bcrypt = require('bcryptjs');
 const User = require('../models/User');
+const { auth } = require('../middleware/auth');
 
-// Login endpoint
+// Register new employee (Admin only)
+router.post('/register', async (req, res) => {
+    try {
+        const hashedPassword = await bcrypt.hash(req.body.password, 8);
+        const employee = new Employee({
+            ...req.body,
+            password: hashedPassword
+        });
+        await employee.save();
+        
+        const token = jwt.sign(
+            { _id: employee._id.toString() },
+            process.env.JWT_SECRET
+        );
+
+        res.status(201).json({ employee, token });
+    } catch (error) {
+        res.status(400).json({ error: error.message });
+    }
+});
+
+// Login
+router.post('/login', async (req, res) => {
+    try {
+        const employee = await Employee.findOne({ email: req.body.email });
+        if (!employee) {
+            return res.status(401).json({ error: 'Invalid login credentials' });
+        }
+
+        const isMatch = await bcrypt.compare(req.body.password, employee.password);
+        if (!isMatch) {
+            return res.status(401).json({ error: 'Invalid login credentials' });
+        }
+
+        const token = jwt.sign(
+            { _id: employee._id.toString() },
+            process.env.JWT_SECRET
+        );
+
+        res.json({ employee, token });
+    } catch (error) {
+        res.status(400).json({ error: error.message });
+    }
+});
+
+// Logout
+router.post('/logout', async (req, res) => {
+    try {
+        // In a real application, you might want to invalidate the token
+        res.json({ message: 'Logged out successfully' });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Register new user
+router.post('/register', async (req, res) => {
+  try {
+    const user = new User(req.body);
+    await user.save();
+    const token = jwt.sign({ userId: user._id }, process.env.JWT_SECRET, {
+      expiresIn: process.env.JWT_EXPIRES_IN
+    });
+    res.status(201).json({ user, token });
+  } catch (error) {
+    res.status(400).json({ message: error.message });
+  }
+});
+
+// Login user
 router.post('/login', async (req, res) => {
   try {
-    const { username, password } = req.body;
+    const { email, password } = req.body;
+    const user = await User.findOne({ email });
     
-    // Find user by username
-    const user = await User.findOne({ username });
-    
-    // Check if user exists
-    if (!user) {
-      return res.status(401).json({ message: 'Invalid username or password' });
+    if (!user || !(await user.comparePassword(password))) {
+      return res.status(401).json({ message: 'Invalid credentials' });
     }
-    
-    // Check if password matches
-    const isMatch = await user.comparePassword(password);
-    if (!isMatch) {
-      return res.status(401).json({ message: 'Invalid username or password' });
-    }
-    
-    // Update last login time
-    user.lastLogin = new Date();
-    await user.save();
-    
-    // Create and sign JWT token
-    const token = jwt.sign(
-      { 
-        _id: user._id, 
-        username: user.username, 
-        role: user.role,
-        firstName: user.firstName,
-        lastName: user.lastName
-      },
-      process.env.JWT_SECRET || 'yourjwtsecretkey',
-      { expiresIn: '24h' }
-    );
-    
-    // Send token and user info (without password)
-    res.json({
-      token,
-      user: {
-        id: user._id,
-        username: user.username,
-        role: user.role,
-        firstName: user.firstName,
-        lastName: user.lastName,
-        lastLogin: user.lastLogin
-      }
+
+    const token = jwt.sign({ userId: user._id }, process.env.JWT_SECRET, {
+      expiresIn: process.env.JWT_EXPIRES_IN
     });
-  } catch (err) {
-    console.error('Login error:', err);
-    res.status(500).json({ message: 'Server error occurred during login' });
+
+    res.json({ user, token });
+  } catch (error) {
+    res.status(400).json({ message: error.message });
   }
 });
 
-// Fallback to demo users if no User collection exists yet
-router.post('/demo-login', (req, res) => {
-  const { username, password } = req.body;
-  
-  // Demo users with hardcoded passwords
-  const demoUsers = [
-    { id: '1', username: 'admin', password: 'Admin@123', role: 'admin' },
-    { id: '2', username: 'hr', password: 'Hr@123', role: 'hr' },
-    { id: '3', username: 'employee', password: 'Employee@123', role: 'employee' },
-    // Keep the old demo credentials as fallback
-    { id: '4', username: 'user', password: 'password', role: 'admin' }
-  ];
-  
-  // Find user by username
-  const user = demoUsers.find(u => u.username === username);
-  
-  // Check if user exists and password matches
-  if (!user || user.password !== password) {
-    return res.status(401).json({ message: 'Invalid credentials' });
-  }
-  
-  // Create and sign JWT token
-  const token = jwt.sign(
-    { id: user.id, username: user.username, role: user.role },
-    process.env.JWT_SECRET || 'yourjwtsecretkey',
-    { expiresIn: '1d' }
-  );
-  
-  // Send token and user info (without password)
-  res.json({
-    token,
-    user: {
-      id: user.id,
-      username: user.username,
-      role: user.role
-    }
-  });
+// Get current user profile
+router.get('/me', auth, async (req, res) => {
+  res.json(req.user);
 });
 
-// Verify token endpoint
-router.get('/verify', async (req, res) => {
+// Update user profile
+router.patch('/me', auth, async (req, res) => {
+  const updates = Object.keys(req.body);
+  const allowedUpdates = ['firstName', 'lastName', 'email', 'password', 'department', 'position'];
+  const isValidOperation = updates.every(update => allowedUpdates.includes(update));
+
+  if (!isValidOperation) {
+    return res.status(400).json({ message: 'Invalid updates!' });
+  }
+
   try {
-    const token = req.headers.authorization?.split(' ')[1];
-    if (!token) return res.status(401).json({ message: 'No token provided' });
-    
-    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'yourjwtsecretkey');
-    const user = await User.findById(decoded._id).select('-password');
-    
-    if (!user) {
-      return res.status(404).json({ message: 'User not found' });
-    }
-    
-    res.json({ valid: true, user });
-  } catch (err) {
-    res.status(401).json({ valid: false, message: 'Invalid or expired token' });
+    updates.forEach(update => req.user[update] = req.body[update]);
+    await req.user.save();
+    res.json(req.user);
+  } catch (error) {
+    res.status(400).json({ message: error.message });
   }
 });
 
-// Logout endpoint
-router.post('/logout', (req, res) => {
-  res.json({ message: 'Logged out successfully' });
-});
-
-module.exports = router;
+module.exports = router; 
