@@ -8,7 +8,7 @@
     "seed": "node server/scripts/seedData.js",
     "check": "node server/scripts/checkData.js",
     "build": "echo 'No build step required for static files'",
-    "netlify-build": "echo 'No build step required for static files'"
+    "netlify-build": "echo 'No build step required for static files' && exit 0"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",
