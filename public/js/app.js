@@ -120,8 +120,8 @@ function showLoginModal() {
     $('#employeeModal .modal-title').text('Login');
     $('#employeeForm').html(`
         <div class="mb-3">
-            <label class="form-label">Email</label>
-            <input type="email" class="form-control" id="email" required>
+            <label class="form-label">Username</label>
+            <input type="text" class="form-control" id="username" required>
         </div>
         <div class="mb-3">
             <label class="form-label">Password</label>
@@ -133,7 +133,7 @@ function showLoginModal() {
 }
 
 function login() {
-    const email = $('#email').val();
+    const username = $('#username').val();
     const password = $('#password').val();
 
     fetch('/api/auth/login', {
@@ -141,7 +141,7 @@ function login() {
         headers: {
             'Content-Type': 'application/json'
         },
-        body: JSON.stringify({ email, password })
+        body: JSON.stringify({ username, password })
     })
     .then(response => response.json())
     .then(data => {

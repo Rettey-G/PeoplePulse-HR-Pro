@@ -27,30 +27,6 @@ router.post('/register', async (req, res) => {
     }
 });
 
-// Login
-router.post('/login', async (req, res) => {
-    try {
-        const employee = await Employee.findOne({ username: req.body.username });
-        if (!employee) {
-            return res.status(401).json({ error: 'Invalid login credentials' });
-        }
-
-        const isMatch = await bcrypt.compare(req.body.password, employee.password);
-        if (!isMatch) {
-            return res.status(401).json({ error: 'Invalid login credentials' });
-        }
-
-        const token = jwt.sign(
-            { _id: employee._id.toString() },
-            process.env.JWT_SECRET
-        );
-
-        res.json({ employee, token });
-    } catch (error) {
-        res.status(400).json({ error: error.message });
-    }
-});
-
 // Logout
 router.post('/logout', async (req, res) => {
     try {
