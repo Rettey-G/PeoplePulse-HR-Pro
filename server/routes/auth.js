@@ -30,7 +30,7 @@ router.post('/register', async (req, res) => {
 // Login
 router.post('/login', async (req, res) => {
     try {
-        const employee = await Employee.findOne({ email: req.body.email });
+        const employee = await Employee.findOne({ username: req.body.username });
         if (!employee) {
             return res.status(401).json({ error: 'Invalid login credentials' });
         }
@@ -64,20 +64,18 @@ router.post('/logout', async (req, res) => {
 // Register new user (admin only)
 router.post('/register', auth, authorize('admin'), async (req, res) => {
   try {
-    const { email, password, role, firstName, lastName } = req.body;
+    const { username, password, role } = req.body;
 
     // Check if user already exists
-    const existingUser = await User.findOne({ email });
+    const existingUser = await User.findOne({ username });
     if (existingUser) {
-      return res.status(400).json({ message: 'Email already registered' });
+      return res.status(400).json({ message: 'Username already registered' });
     }
 
     const user = new User({
-      email,
+      username,
       password,
-      role,
-      firstName,
-      lastName
+      role
     });
 
     await user.save();
@@ -92,10 +90,8 @@ router.post('/register', auth, authorize('admin'), async (req, res) => {
     res.status(201).json({
       user: {
         _id: user._id,
-        email: user.email,
-        role: user.role,
-        firstName: user.firstName,
-        lastName: user.lastName
+        username: user.username,
+        role: user.role
       },
       token
     });
@@ -107,10 +103,10 @@ router.post('/register', auth, authorize('admin'), async (req, res) => {
 // Login user
 router.post('/login', async (req, res) => {
   try {
-    const { email, password } = req.body;
+    const { username, password } = req.body;
 
     // Find user
-    const user = await User.findOne({ email, isActive: true });
+    const user = await User.findOne({ username, isActive: true });
     if (!user) {
       return res.status(401).json({ message: 'Invalid credentials' });
     }
@@ -135,10 +131,8 @@ router.post('/login', async (req, res) => {
     res.json({
       user: {
         _id: user._id,
-        email: user.email,
-        role: user.role,
-        firstName: user.firstName,
-        lastName: user.lastName
+        username: user.username,
+        role: user.role
       },
       token
     });
@@ -160,7 +154,7 @@ router.get('/me', auth, async (req, res) => {
 // Update user profile
 router.patch('/me', auth, async (req, res) => {
   const updates = Object.keys(req.body);
-  const allowedUpdates = ['firstName', 'lastName', 'email', 'password', 'department', 'position'];
+  const allowedUpdates = ['username', 'password'];
   const isValidOperation = updates.every(update => allowedUpdates.includes(update));
 
   if (!isValidOperation) {

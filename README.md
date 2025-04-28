@@ -37,7 +37,7 @@ npm install
 
 3. Create a `.env` file in the root directory with the following variables:
 ```
-MONGODB_URI=your_mongodb_uri = mongodb+srv://Rettey:Adhu1447@cluster0.spr2o17.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0
+jjhrpro gmain MONGODB_URI=your_mongodb_uri = mongodb+srv://Rettey:Adhu1447@cluster0.spr2o17.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0
 JWT_SECRET=your_jwt_secret = Adhu1447
 PORT=3000
 ```

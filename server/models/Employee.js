@@ -6,16 +6,45 @@ const employeeSchema = new mongoose.Schema({
     ref: 'User',
     required: true
   },
-  employeeId: {
+  empNo: {
     type: String,
     required: true,
     unique: true
+  },
+  employeeName: {
+    type: String,
+    required: true
+  },
+  idNumber: {
+    type: String,
+    required: true,
+    unique: true
+  },
+  gender: {
+    type: String,
+    enum: ['Male', 'Female'],
+    required: true
+  },
+  nationality: {
+    type: String,
+    required: true
+  },
+  dateOfBirth: {
+    type: Date,
+    required: true
+  },
+  mobileNumber: {
+    type: String
+  },
+  designation: {
+    type: String,
+    required: true
   },
   department: {
     type: String,
     required: true
   },
-  position: {
+  workSite: {
     type: String,
     required: true
   },
@@ -23,42 +52,26 @@ const employeeSchema = new mongoose.Schema({
     type: Date,
     required: true
   },
-  employmentType: {
-    type: String,
-    enum: ['full-time', 'part-time', 'contract'],
+  salaryMVR: {
+    type: Number,
     required: true
   },
-  supervisor: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'Employee'
+  salaryUSD: {
+    type: Number,
+    required: true
   },
-  contactInfo: {
-    phone: String,
-    emergencyContact: {
-      name: String,
-      relationship: String,
-      phone: String
-    }
+  accountMVR: {
+    type: String,
+    required: true
   },
-  address: {
-    street: String,
-    city: String,
-    state: String,
-    zipCode: String,
-    country: String
+  accountUSD: {
+    type: String,
+    required: true
   },
-  documents: [{
-    type: {
-      type: String,
-      enum: ['resume', 'contract', 'certification', 'other']
-    },
-    url: String,
-    uploadDate: Date
-  }],
   status: {
     type: String,
-    enum: ['active', 'on-leave', 'terminated'],
-    default: 'active'
+    enum: ['Active', 'Inactive', 'On Leave'],
+    default: 'Active'
   }
 }, {
   timestamps: true

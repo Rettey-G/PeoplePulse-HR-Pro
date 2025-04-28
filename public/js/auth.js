@@ -31,7 +31,7 @@ async function initAuth() {
 
 // Update UI for logged in user
 function updateUIForLoggedInUser() {
-    document.getElementById('userName').textContent = `${currentUser.firstName} ${currentUser.lastName}`;
+    document.getElementById('userName').textContent = currentUser.username;
     
     // Show/hide navigation items based on role
     const navItems = document.querySelectorAll('.nav-link');
@@ -51,14 +51,14 @@ function redirectToLogin() {
 }
 
 // Login function
-async function login(email, password) {
+async function login(username, password) {
     try {
         const response = await fetch('/api/auth/login', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
             },
-            body: JSON.stringify({ email, password })
+            body: JSON.stringify({ username, password })
         });
 
         if (response.ok) {

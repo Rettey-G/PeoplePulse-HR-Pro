@@ -287,48 +287,97 @@ async function loadLeaves() {
 
 // Load profile
 async function loadProfile() {
-    const contentDiv = document.getElementById('content');
     const user = auth.getCurrentUser();
     
+    // Update profile info
+    document.getElementById('profileName').textContent = user.username;
+    document.getElementById('profileRole').textContent = user.role.charAt(0).toUpperCase() + user.role.slice(1);
+    document.getElementById('username').value = user.username;
+    
+    // Load leave balances
     const employee = await apiRequest(`/employees/user/${user._id}`);
     const leaveBalances = await apiRequest(`/leaves/${employee._id}/balances`);
     
-    let html = `
-        <div class="row">
-            <div class="col-md-4">
-                <div class="card">
-                    <div class="card-body">
-                        <h5 class="card-title">Personal Information</h5>
-                        <p><strong>Name:</strong> ${employee.user.firstName} ${employee.user.lastName}</p>
-                        <p><strong>Email:</strong> ${employee.user.email}</p>
-                        <p><strong>Employee ID:</strong> ${employee.employeeId}</p>
-                        <p><strong>Department:</strong> ${employee.department}</p>
-                        <p><strong>Position:</strong> ${employee.position}</p>
-                    </div>
+    const leaveBalancesDiv = document.getElementById('leaveBalances');
+    leaveBalancesDiv.innerHTML = `
+        <div class="col-md-4">
+            <div class="card">
+                <div class="card-body">
+                    <h6 class="card-title">Annual Leave</h6>
+                    <p class="card-text">
+                        <strong>Accrued:</strong> ${leaveBalances.annual.accrued} days<br>
+                        <strong>Used:</strong> ${leaveBalances.annual.used} days<br>
+                        <strong>Remaining:</strong> ${leaveBalances.annual.accrued - leaveBalances.annual.used} days
+                    </p>
                 </div>
             </div>
-            <div class="col-md-8">
-                <div class="card">
-                    <div class="card-body">
-                        <h5 class="card-title">Leave Balances</h5>
-                        <div class="row">
-                            <div class="col-md-4">
-                                <p><strong>Annual Leave:</strong> ${leaveBalances.annual.accrued - leaveBalances.annual.used} days</p>
-                            </div>
-                            <div class="col-md-4">
-                                <p><strong>Sick Leave:</strong> ${leaveBalances.sick.accrued - leaveBalances.sick.used} days</p>
-                            </div>
-                            <div class="col-md-4">
-                                <p><strong>Emergency Leave:</strong> ${leaveBalances.emergency.accrued - leaveBalances.emergency.used} days</p>
-                            </div>
-                        </div>
-                    </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card">
+                <div class="card-body">
+                    <h6 class="card-title">Sick Leave</h6>
+                    <p class="card-text">
+                        <strong>Accrued:</strong> ${leaveBalances.sick.accrued} days<br>
+                        <strong>Used:</strong> ${leaveBalances.sick.used} days<br>
+                        <strong>Remaining:</strong> ${leaveBalances.sick.accrued - leaveBalances.sick.used} days
+                    </p>
                 </div>
             </div>
         </div>
     `;
     
-    contentDiv.innerHTML = html;
+    // Add event listeners
+    document.getElementById('profileForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        
+        try {
+            auth.showLoading();
+            const username = document.getElementById('username').value;
+            
+            await apiRequest('/auth/me', {
+                method: 'PATCH',
+                body: JSON.stringify({ username })
+            });
+            
+            auth.showToast('Success', 'Profile updated successfully');
+            document.getElementById('userName').textContent = username;
+        } catch (error) {
+            auth.showToast('Error', error.message);
+        } finally {
+            auth.hideLoading();
+        }
+    });
+    
+    document.getElementById('changePasswordBtn').addEventListener('click', () => {
+        const modal = new bootstrap.Modal(document.getElementById('changePasswordModal'));
+        modal.show();
+    });
+    
+    document.getElementById('submitPasswordChangeBtn').addEventListener('click', async () => {
+        try {
+            auth.showLoading();
+            const currentPassword = document.getElementById('currentPassword').value;
+            const newPassword = document.getElementById('newPassword').value;
+            const confirmPassword = document.getElementById('confirmPassword').value;
+            
+            if (newPassword !== confirmPassword) {
+                throw new Error('New passwords do not match');
+            }
+            
+            await apiRequest('/auth/me', {
+                method: 'PATCH',
+                body: JSON.stringify({ currentPassword, newPassword })
+            });
+            
+            auth.showToast('Success', 'Password changed successfully');
+            bootstrap.Modal.getInstance(document.getElementById('changePasswordModal')).hide();
+            document.getElementById('changePasswordForm').reset();
+        } catch (error) {
+            auth.showToast('Error', error.message);
+        } finally {
+            auth.hideLoading();
+        }
+    });
 }
 
 // Utility function to get status color
