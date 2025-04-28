@@ -3,7 +3,8 @@
   "version": "1.0.0",
   "description": "HR Management System",
   "scripts": {
-    "build": "echo 'No build step required for static files'"
+    "build": "echo 'No build step required for static files'",
+    "seed": "node server/scripts/seedData.js"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",
