@@ -90,3 +90,10 @@ PeoplePulse-HR-Pro/
 ## License
 
 MIT License 
+
+Admin:
+Username: admin
+Password: admin123
+HR:
+Username: hr
+Password: hr123
