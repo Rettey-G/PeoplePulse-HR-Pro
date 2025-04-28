@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "description": "HR Management System",
   "scripts": {
+    "start": "node server/server.js",
     "build": "echo 'No build step required for static files'",
     "seed": "node server/scripts/seedData.js"
   },
