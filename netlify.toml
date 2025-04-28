@@ -1,11 +1,10 @@
 [build]
   base = "public"
   publish = "public"
-  command = "echo 'No build step required'"
+  command = ""
 
 [build.environment]
   NODE_VERSION = "18"
-  NPM_FLAGS = "--no-optional"
 
 [context.production]
   command = "echo 'No build step required'"

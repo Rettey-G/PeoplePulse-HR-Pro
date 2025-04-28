@@ -2,13 +2,8 @@
   "name": "peoplepulse-hr",
   "version": "1.0.0",
   "description": "HR Management System",
-  "main": "server/server.js",
   "scripts": {
-    "start": "node server/server.js",
-    "seed": "node server/scripts/seedData.js",
-    "check": "node server/scripts/checkData.js",
-    "build": "echo 'No build step required for static files'",
-    "netlify-build": "echo 'No build step required for static files' && exit 0"
+    "build": "echo 'No build step required for static files'"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",
