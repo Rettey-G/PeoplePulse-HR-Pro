@@ -1,22 +1,13 @@
 {
   "name": "peoplepulse-hr-pro",
   "version": "1.0.0",
-  "description": "A comprehensive HR management system with leave management capabilities",
+  "description": "A comprehensive HR management system",
   "main": "server/index.js",
   "scripts": {
     "start": "node server/index.js",
     "dev": "nodemon server/index.js",
     "test": "jest"
   },
-  "keywords": [
-    "hr",
-    "management",
-    "employee",
-    "payroll",
-    "leave"
-  ],
-  "author": "Rettey-G",
-  "license": "MIT",
   "dependencies": {
     "bcryptjs": "^2.4.3",
     "cors": "^2.8.5",
@@ -24,7 +15,7 @@
     "express": "^4.18.2",
     "jsonwebtoken": "^9.0.0",
     "mongoose": "^7.0.3",
-    "socket.io": "^4.6.1"
+    "multer": "^1.4.5-lts.1"
   },
   "devDependencies": {
     "jest": "^29.5.0",
@@ -32,5 +23,17 @@
   },
   "engines": {
     "node": ">=14.0.0"
-  }
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Rettey-G/PeoplePulse-HR-Pro.git"
+  },
+  "keywords": [
+    "hr",
+    "management",
+    "leave",
+    "employee"
+  ],
+  "author": "",
+  "license": "MIT"
 } 

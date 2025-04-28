@@ -4,6 +4,11 @@ const mongoose = require('mongoose');
 const cors = require('cors');
 const path = require('path');
 
+// Import routes
+const authRoutes = require('./routes/auth');
+const employeeRoutes = require('./routes/employees');
+const leaveRoutes = require('./routes/leaves');
+
 const app = express();
 
 // Middleware
@@ -15,14 +20,17 @@ app.use(express.urlencoded({ extended: true }));
 app.use(express.static(path.join(__dirname, '../public')));
 
 // Connect to MongoDB
-mongoose.connect(process.env.MONGODB_URI)
-  .then(() => console.log('Connected to MongoDB'))
-  .catch(err => console.error('MongoDB connection error:', err));
+mongoose.connect(process.env.MONGODB_URI, {
+  useNewUrlParser: true,
+  useUnifiedTopology: true
+})
+.then(() => console.log('Connected to MongoDB'))
+.catch(err => console.error('MongoDB connection error:', err));
 
 // Routes
-app.use('/api/auth', require('./routes/auth'));
-app.use('/api/employees', require('./routes/employees'));
-app.use('/api/leaves', require('./routes/leaves'));
+app.use('/api/auth', authRoutes);
+app.use('/api/employees', employeeRoutes);
+app.use('/api/leaves', leaveRoutes);
 
 // Serve the frontend for any other routes
 app.get('*', (req, res) => {
@@ -37,5 +45,5 @@ app.use((err, req, res, next) => {
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
+  console.log(`Server is running on port ${PORT}`);
 }); 
